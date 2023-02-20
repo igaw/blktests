@@ -16,6 +16,7 @@ def_local_wwnn="0x10001100aa000002"
 def_local_wwpn="0x20001100aa000002"
 def_hostnqn="$(cat /etc/nvme/hostnqn 2> /dev/null)"
 def_hostid="$(cat /etc/nvme/hostid 2> /dev/null)"
+def_connect_timeout=15
 nvme_trtype=${nvme_trtype:-"loop"}
 
 _nvme_requires() {
@@ -584,14 +585,25 @@ _nvmet_passthru_target_setup() {
 _nvmet_passthru_target_connect() {
 	local trtype=$1
 	local subsys_name=$2
+	local timeout=${3:$def_connect_timeout}
 
 	_nvme_connect_subsys "${trtype}" "${subsys_name}" || return
 	nsdev=$(_find_nvme_passthru_loop_dev "${subsys_name}")
 
+	local start_time=$(date +%s)
+	local end_time
+
 	# The following tests can race with the creation
 	# of the device so ensure the block device exists
 	# before continuing
-	while [ ! -b "${nsdev}" ]; do sleep 1; done
+	while [ ! -b "${nsdev}" ]; do
+		sleep 1;
+		end_time=$(date +%s)
+		if (( end_time - start_time > timeout )); then
+			echo "connection attempt timed out"
+			break;
+		fi
+	done
 
 	echo "${nsdev}"
 }
