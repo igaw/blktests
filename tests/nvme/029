@@ -14,6 +14,7 @@ requires() {
 	_nvme_requires
 	_have_loop
 	_require_nvme_trtype_is_fabrics
+	_require_test_dev_size 1M
 }
 
 test_user_io()
@@ -59,7 +60,7 @@ test() {
 	local file_path="$TMPDIR/img"
 	local subsys_name="blktests-subsystem-1"
 
-	truncate -s 1G "${file_path}"
+	truncate -s "${nvme_img_size}" "${file_path}"
 
 	loop_dev="$(losetup -f --show "${file_path}")"
 

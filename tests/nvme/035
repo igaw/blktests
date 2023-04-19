@@ -17,7 +17,7 @@ requires() {
 }
 
 device_requires() {
-	_require_test_dev_size 1024m
+	_require_test_dev_size "${nvme_img_size}"
 }
 
 test_device() {

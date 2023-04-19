@@ -25,7 +25,7 @@ test() {
 	echo "Running ${TEST_NAME}"
 
 	_setup_nvmet
-	truncate -s 1G "$TMPDIR/img"
+	truncate -s "${nvme_img_size}" "$TMPDIR/img"
 	loop_dev="$(losetup -f --show "$TMPDIR/img")"
 
 	port="$(_create_nvmet_port "${nvme_trtype}")"
@@ -37,7 +37,7 @@ test() {
 
 	# start fio job
 	echo "starting background fio"
-	_run_fio_rand_io --filename="/dev/${nvmedev}n1" --size=1g \
+	_run_fio_rand_io --filename="/dev/${nvmedev}n1" --size="${nvme_img_size}" \
 		--group_reporting --ramp_time=5 \
 		--time_based --runtime=1m &> /dev/null &
 	sleep 5

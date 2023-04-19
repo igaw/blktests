@@ -38,7 +38,7 @@ test_device() {
 	sysfs="/sys/bus/pci/devices/${pdev}"
 
 	# start fio job
-	_run_fio_rand_io --filename="$TEST_DEV" --size=1g \
+	_run_fio_rand_io --filename="$TEST_DEV" --size="${nvme_img_size}" \
 		--group_reporting --time_based --runtime=1m &> /dev/null &
 
 	sleep 5
