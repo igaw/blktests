@@ -27,6 +27,12 @@ _xfs_run_fio_verify_io() {
 
 	_xfs_mkfs_and_mount "${bdev}" "${mount_dir}" >> "${FULL}" 2>&1
 
+	if [[ -z "${sz}" ]]; then
+		local avail
+		avail="$(df --output=avail "${mount_dir}" | awk 'NR==2 {print $1}')"
+		sz="$(printf "%d" $((avail / 1024 - 1 )))m"
+	fi
+
 	_run_fio_verify_io --size="$sz" --directory="${mount_dir}/"
 
 	umount "${mount_dir}" >> "${FULL}" 2>&1
