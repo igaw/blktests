@@ -14,7 +14,6 @@ requires() {
 	_nvme_requires
 	_have_loop
 	_require_nvme_trtype_is_fabrics
-	_require_test_dev_size 1M
 }
 
 test_user_io()
