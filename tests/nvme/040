@@ -21,6 +21,7 @@ test() {
 	local port
 	local loop_dev
 	local nvmedev
+	local rand_io_size
 
 	echo "Running ${TEST_NAME}"
 
@@ -37,7 +38,8 @@ test() {
 
 	# start fio job
 	echo "starting background fio"
-	_run_fio_rand_io --filename="/dev/${nvmedev}n1" --size="${nvme_img_size}" \
+	rand_io_size="$(_nvme_calc_rand_io_size "${nvme_img_size}")"
+	_run_fio_rand_io --filename="/dev/${nvmedev}n1" --size="${rand_io_size}" \
 		--group_reporting --ramp_time=5 \
 		--time_based --runtime=1m &> /dev/null &
 	sleep 5

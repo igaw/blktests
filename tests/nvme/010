@@ -25,6 +25,7 @@ test() {
 	local loop_dev
 	local file_path="${TMPDIR}/img"
 	local subsys_name="blktests-subsystem-1"
+	local io_size
 
 	truncate -s "${nvme_img_size}" "${file_path}"
 
@@ -41,8 +42,8 @@ test() {
 	cat "/sys/block/${nvmedev}n1/uuid"
 	cat "/sys/block/${nvmedev}n1/wwid"
 
-	_run_fio_verify_io --size=${nvme_img_size} \
-		--filename="/dev/${nvmedev}n1"
+	io_size="$(_nvme_calc_io_size "${nvme_img_size}")"
+	_run_fio_verify_io --size="${io_size}" --filename="/dev/${nvmedev}n1"
 
 	_nvme_disconnect_subsys "${subsys_name}"
 

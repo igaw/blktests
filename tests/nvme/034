@@ -19,6 +19,7 @@ test_device() {
 	local ctrldev
 	local nsdev
 	local port
+	local io_size
 
 	echo "Running ${TEST_NAME}"
 
@@ -26,7 +27,8 @@ test_device() {
 	port=$(_nvmet_passthru_target_setup "${subsys}")
 	nsdev=$(_nvmet_passthru_target_connect "${nvme_trtype}" "${subsys}")
 
-	_run_fio_verify_io --size="${nvme_img_size}" --filename="${nsdev}"
+	io_size="$(_nvme_calc_io_size "${nvme_img_size}")"
+	_run_fio_verify_io --size="${io_size}" --filename="${nsdev}"
 
 	_nvme_disconnect_subsys "${subsys}"
 	_nvmet_passthru_target_cleanup "${port}" "${subsys}"

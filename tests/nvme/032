@@ -33,13 +33,15 @@ test_device() {
 	local sysfs
 	local attr
 	local m
+	local rand_io_size
 
 	pdev="$(_get_pci_dev_from_blkdev)"
 	sysfs="/sys/bus/pci/devices/${pdev}"
 
 	# start fio job
-	_run_fio_rand_io --filename="$TEST_DEV" --size="${nvme_img_size}" \
-		--group_reporting --time_based --runtime=1m &> /dev/null &
+	rand_io_size="$(_nvme_calc_rand_io_size "${nvme_img_size}")"
+	_run_fio_rand_io --filename="$TEST_DEV" --size="${rand_io_size}" \
+		--group_reporting --time_based --runtime=1m > /dev/null &
 
 	sleep 5
 
