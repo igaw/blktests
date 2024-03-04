@@ -21,6 +21,27 @@ requires() {
 	_have_driver dh_generic
 }
 
+nvmf_wait_for_ctrl_delete() {
+	local def_state_timeout=5
+	local nvmedev="$1"
+	local timeout="${2:-$def_state_timeout}"
+	local ctrl="/sys/class/nvme-fabrics/ctl/${nvmedev}/state"
+	local start_time
+	local end_time
+
+	start_time=$(date +%s)
+	while [ -f "${ctrl}" ]; do
+		sleep 1
+		end_time=$(date +%s)
+		if (( end_time - start_time > timeout )); then
+			echo "controller \"${nvmedev}\" not deleted" \
+				"within ${timeout} seconds"
+			return 1
+		fi
+	done
+
+	return 0
+}
 
 test() {
 	echo "Running ${TEST_NAME}"
@@ -55,7 +76,8 @@ test() {
 			     --hostnqn "${def_hostnqn}" \
 			     --hostid "${def_hostid}" \
 			     --dhchap-secret "${hostkey}" \
-			     --dhchap-ctrl-secret "${ctrlkey}"
+			     --dhchap-ctrl-secret "${ctrlkey}" \
+			     --reconnect-delay 1
 
 	echo "Re-authenticate with original host key"
 
@@ -107,6 +129,16 @@ test() {
 
 	rand_io_size="$(_nvme_calc_rand_io_size 4m)"
 	_run_fio_rand_io --size="${rand_io_size}" --filename="/dev/${nvmedev}n1"
+
+	echo "Renew host key on the controller and force reconnect"
+
+	new_hostkey="$(nvme gen-dhchap-key -n ${def_subsysnqn} 2> /dev/null)"
+
+	_set_nvmet_hostkey "${def_hostnqn}" "${new_hostkey}"
+
+	# Force a reconnect
+	_set_nvmet_attr_qid_max "${def_subsysnqn}" 1
+	nvmf_wait_for_ctrl_delete "${nvmedev}"
 
 	_nvme_disconnect_subsys "${def_subsysnqn}"
 
