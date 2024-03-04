@@ -122,13 +122,25 @@ _require_nvme_test_img_size() {
 	return 0
 }
 
-_require_nvme_trtype() {
+_is_nvme_trtype() {
 	local trtype
+
 	for trtype in "$@"; do
 		if [[ "${nvme_trtype}" == "$trtype" ]]; then
 			return 0
 		fi
 	done
+
+	return 1
+}
+
+_require_nvme_trtype() {
+	local trtype
+
+	if _is_nvme_trtype "$@"; then
+		return 0
+	fi
+
 	SKIP_REASONS+=("nvme_trtype=${nvme_trtype} is not supported in this test")
 	return 1
 }
@@ -522,7 +534,8 @@ _nvme_connect_subsys() {
 	if [[ -n "${keep_alive_tmo}" ]]; then
 		ARGS+=(--keep-alive-tmo="${keep_alive_tmo}")
 	fi
-	if [[ -n "${reconnect_delay}" ]]; then
+	if ! _is_nvme_trtype loop &&
+	   [[ -n "${reconnect_delay}" ]]; then
 		ARGS+=(--reconnect-delay="${reconnect_delay}")
 	fi
 	if [[ -n "${ctrl_loss_tmo}" ]]; then
