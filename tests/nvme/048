@@ -69,19 +69,11 @@ nvmf_check_queue_count() {
 	return 0
 }
 
-set_nvmet_attr_qid_max() {
-	local nvmet_subsystem="$1"
-	local qid_max="$2"
-	local cfs_path="${NVMET_CFS}/subsystems/${nvmet_subsystem}"
-
-	echo "${qid_max}" > "${cfs_path}/attr_qid_max"
-}
-
 set_qid_max() {
 	local subsys_name="$1"
 	local qid_max="$2"
 
-	set_nvmet_attr_qid_max "${subsys_name}" "${qid_max}"
+	_set_nvmet_attr_qid_max "${subsys_name}" "${qid_max}"
 	nvmf_check_queue_count "${subsys_name}" "${qid_max}" || return 1
 	nvmf_wait_for_state "${subsys_name}" "live" || return 1
 
