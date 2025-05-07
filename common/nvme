@@ -415,7 +415,7 @@ _nvme_connect_subsys() {
 	if [[ ${concat} = true ]]; then
 		ARGS+=(--concat)
 	fi
-	ARGS+=(-o json)
+	ARGS+=(--output-format json)
 	connect=$(nvme connect "${ARGS[@]}" 2> /dev/null)
 
 	# Wait until device file and sysfs attributes get ready
