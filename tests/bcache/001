@@ -1,0 +1,30 @@
+#!/bin/bas h
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2026 Daniel Wagner, SUSE Labs
+#
+# Test bcache setup
+
+. tests/bcache/rc
+
+DESCRIPTION="test bcache setup"
+
+requires() {
+		_bcache_requires
+}
+
+test_device_array() {
+	echo "Running ${TEST_NAME}"
+
+	if [[ ${#TEST_DEV_ARRAY[@]} -lt 3 ]]; then
+		SKIP_REASONS+=("requires at least 3 devices")
+		return 1
+	fi
+
+	_setup_bcache --cache-devices "${TEST_DEV_ARRAY[0]##*/}" \
+		--backing-devices "${TEST_DEV_ARRAY[1]##*/}" "${TEST_DEV_ARRAY[2]##*/}" \
+		--bucket-size 64k \
+		--block-size 4k \
+		--writeback
+
+    _cleanup_bcache
+}

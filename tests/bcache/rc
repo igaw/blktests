@@ -1,0 +1,155 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2026 Daniel Wagner, SUSE Labs
+
+. common/rc
+
+declare -a BCACHE_BDEVS_TO_WIPE=()
+declare -a BCACHE_BDEVS_TO_STOP=()
+declare -a BCACHE_CSET_TO_STOP=()
+
+_bcache_requires() {
+	_have_kernel_options MD BCACHE BCACHE_DEBUG AUTOFS_FS
+	_have_program make-bcache
+	_have_crypto_algorithm crc32c
+}
+
+_setup_bcache() {
+    local -a cache_devices=()
+    local -a backing_devices=()
+    local bucket_size=""
+    local block_size=""
+
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --cache-devices)
+                shift
+                # Collect arguments until the next flag or end of input
+                while [[ $# -gt 0 && ! $1 =~ ^-- ]]; do
+                    cache_devices+=("$1")
+                    shift
+                done
+                ;;
+            --backing-devices)
+                shift
+                # Collect arguments until the next flag or end of input
+                while [[ $# -gt 0 && ! $1 =~ ^-- ]]; do
+                    backing_devices+=("$1")
+                    shift
+                done
+                ;;
+            --bucket-size)
+                bucket_size="$2"
+                shift 2
+                ;;
+            --block-size)
+                block_size="$2"
+                shift 2
+                ;;
+            --writeback)
+				ARGS+=(--writeback)
+                shift 1
+                ;;
+			--discard)
+				ARGS+=(--discard)
+				shift 1
+				;;
+            *)
+                echo "WARNING: unknown argument: $1"
+                shift
+                ;;
+        esac
+    done
+
+	cache_devices=( "${cache_devices[@]/#/\/dev\/}" )
+	backing_devices=( "${backing_devices[@]/#/\/dev\/}" )
+
+	local dev
+    for dev in "${cache_devices[@]}" "${backing_devices[@]}"; do
+    	wipefs --all --quiet "$dev"
+    done
+
+    local -a cdev_args=()
+    for dev in "${cache_devices[@]}"; do
+        cdev_args+=("--cache" "$dev")
+    done
+
+	local -a bdev_args=()
+    for dev in "${backing_devices[@]}"; do
+        bdev_args+=("--bdev" "$dev")
+    done
+
+	local output
+	output=$(make-bcache \
+		--bucket "${bucket_size}" \
+		--block "${block_size}" \
+		"${cdev_args[@]}" \
+        "${bdev_args[@]}" \
+		--wipe-bcache "${ARGS[@]}" 2>&1)
+
+    if [[ $? -ne 0 ]]; then
+        echo "ERROR: make-bcache failed:" >&2
+        echo "$output" >&2
+        return 1
+    fi
+
+	BCACHE_BDEV_TO_WIPE+=("${cache_devices[@]}" "${backing_devices[@]}")
+
+	local cset_uuid=$(echo "$output" | awk '/Set UUID:/ {print $3}' | head -n 1)
+
+	if [[ -z "${cset_uuid}" ]]; then
+        echo "ERROR: Could not extract UUID from make-bcache output" >&2
+        return 1
+    fi
+
+	local -a bdev_uuids
+    bdev_uuids=($(echo "$output" | awk '
+        $1 == "UUID:" { last_uuid = $2 }
+        $1 == "version:" && $2 == "1" { print last_uuid }
+    '))
+
+	# XXX
+	sleep 1
+
+	udevadm settle
+
+	for uuid in "${bdev_uuids[@]}"; do
+        local link="/dev/bcache/by-uuid/$uuid"
+        if [[ -L "$link" ]]; then
+            local full_path=$(readlink -f "$link")
+            local node_name="${full_path##*/}"
+            BCACHE_BDEV_TO_STOP+=("${node_name}")
+        else
+            echo "WARNING: Could not find device node for UUID $uuid" >&2
+			echo "${output}" >&2
+			ls -l /dev/bcache/by-uuid/ >&2
+			ls -ld /dev/bcache* >&2
+			ls -ld /sys/block/bcache* >&2
+        fi
+    done
+
+	BCACHE_CSET_TO_STOP+=("${cset_uuid}")
+}
+
+_cleanup_bcache() {
+    local uuid
+	local dev
+
+	for dev in "${BCACHE_BDEV_TO_STOP[@]}"; do
+		echo 1 > /sys/block/"${dev}"/bcache/stop;
+	done
+
+	for uuid in "${BCACHE_CSET_TO_STOP[@]}"; do
+        echo 1 > /sys/fs/bcache/"${uuid}"/stop
+    done
+
+	# XXX
+	sleep 1
+
+	for dev in "${BCACHE_BDEV_TO_WIPE[@]}"; do
+        wipefs --all --quiet "$dev"
+    done
+
+	BCACHE_CSET_TO_STOP=()
+	BCACHE_BDEV_TO_STOP=()
+	BCACHE_BDEV_TO_WIPE=()
+}
